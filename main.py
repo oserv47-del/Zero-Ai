@@ -1,67 +1,94 @@
 import os
 import json
+import io
+from PIL import Image
 import google.generativeai as genai
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-# Load environment variables (Local testing ke liye)
+# Load environment variables
 load_dotenv()
 
-app = FastAPI(title="AI Personal Assistant API")
+app = FastAPI(title="NOVA / MJ AI Assistant API - All Features")
 
-# Setup Gemini API (Free Tier)
+# Gemini API Setup
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    print("Warning: GEMINI_API_KEY is not set!")
-
 genai.configure(api_key=GEMINI_API_KEY)
 
-# Hum gemini-1.5-flash use karenge kyunki ye fast aur free tier me available hai
+# Using Gemini 1.5 Flash as it supports both Text and Vision efficiently
 model = genai.GenerativeModel('gemini-1.5-flash')
 
-# Request Body Structure
-class UserCommand(BaseModel):
+class TextCommand(BaseModel):
     command: str
 
 @app.get("/")
 def home():
-    return {"status": "AI API is Live!", "version": "1.0"}
+    return {"status": "AI Master Server is Running Successfully! 🚀", "version": "5.0"}
 
-@app.post("/api/process")
-async def process_user_command(req: UserCommand):
-    # AI ko sikhane ke liye System Prompt (Taaki wo sirf JSON de)
+# ==========================================
+# ROUTE 1: Text & Voice Commands (System, Spotify, Files)
+# ==========================================
+@app.post("/api/command")
+async def process_text_command(req: TextCommand):
     system_prompt = f"""
-    You are the brain of an Android personal assistant. 
-    The user said this command in Hindi/English: "{req.command}"
+    You are the core intelligence of an advanced Android Assistant.
+    The user command is: "{req.command}"
     
-    Understand the command and return ONLY a valid JSON object. Do not add markdown like ```json.
-    
-    Rules for JSON output:
-    1. If user wants to create a file: 
-       {{"action": "create_file", "folder_path": "path_mentioned_or_default", "file_name": "name.txt"}}
-    2. If user wants to copy a folder:
-       {{"action": "copy_folder", "source_path": "source", "destination_path": "destination"}}
-    3. If user wants to play a song:
-       {{"action": "play_music", "song_name": "name"}}
-    4. If it is a normal question or conversation:
-       {{"action": "speak", "text": "Your answer in Hindi/Hinglish"}}
+    You must output ONLY a valid JSON object. No markdown, no explanations.
+    Analyze the command and return the appropriate action structure:
+
+    1. System App/Settings Open:
+       {{"action": "open_system_app", "app_name": "whatsapp/settings/camera/youtube"}}
+    2. Spotify Control:
+       {{"action": "play_spotify", "song": "song_name", "artist": "artist_name"}}
+    3. File Management (Create/Copy/Move):
+       {{"action": "file_manager", "operation": "create", "path": "/storage/emulated/0/Download", "filename": "name.txt"}}
+    4. System Analysis/Device Info:
+       {{"action": "system_analysis", "task": "check_battery_or_storage"}}
+    5. General Chat/Answers:
+       {{"action": "speak", "text": "Your conversational answer here in Hindi/English"}}
     """
 
     try:
-        # AI se response lena
         response = model.generate_content(system_prompt)
-        
-        # AI kabhi-kabhi ```json tag laga deta hai, usko hatane ke liye
         raw_text = response.text.strip().removeprefix('```json').removesuffix('```').strip()
-        
-        # String ko wapas JSON dictionary me convert karna
-        action_json = json.loads(raw_text)
-        
-        return {
-            "status": "success",
-            "data": action_json
-        }
+        return {"status": "success", "data": json.loads(raw_text)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==========================================
+# ROUTE 2: Vision & Screen Processing (Screen, Image, Camera Analysis)
+# ==========================================
+@app.post("/api/vision")
+async def process_vision_command(
+    feature_type: str = Form(...), # 'screen_reading', 'screen_analysis', 'camera_analysis', 'image_analysis'
+    user_prompt: str = Form(default="Analyze this image and tell me what you see."),
+    image: UploadFile = File(...)
+):
+    try:
+        # Image ko read karke PIL format me convert karna
+        image_data = await image.read()
+        pil_image = Image.open(io.BytesIO(image_data))
+
+        # Alag-alag features ke liye prompts
+        if feature_type == "screen_reading":
+            prompt = "Extract all readable text and UI elements from this screenshot. Return output as a JSON with key 'extracted_text'."
+        elif feature_type == "screen_analysis":
+            prompt = "Analyze this Android screen. What app is open? What is the user doing? Return JSON with keys 'current_app' and 'activity_description'."
+        elif feature_type == "camera_analysis":
+            prompt = f"This is a live camera feed. {user_prompt}. Return JSON with key 'surroundings_analysis'."
+        else:
+            prompt = f"Analyze this image. {user_prompt}. Return JSON with key 'image_details'."
+
+        prompt += "\nOutput ONLY valid JSON."
+
+        # Vision model ko image aur prompt bhejna
+        response = model.generate_content([prompt, pil_image])
+        raw_text = response.text.strip().removeprefix('```json').removesuffix('```').strip()
+
+        return {"status": "success", "feature": feature_type, "data": json.loads(raw_text)}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
