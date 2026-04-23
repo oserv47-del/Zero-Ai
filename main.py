@@ -10,7 +10,7 @@ load_dotenv()
 app = FastAPI(title="NOVA Custom AI Server")
 
 # Initialize Fast Groq Client (Llama 3)
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_API_KEY = os.getenv("gsk_76biwXFmSIC5Ihpzm9sxWGdyb3FY6doAIVZO9pVya3Agn0XSS6S3n")
 client = Groq(api_key=GROQ_API_KEY)
 
 # Load your Custom Trained Data
