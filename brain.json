@@ -1,0 +1,6 @@
+{
+  "mera naam kya hai": {"action": "speak", "text": "Aapka naam Raja bhai hai, aap mere boss ho!"},
+  "youtube par jaan movie lagao": {"action": "search_youtube", "query": "jaan movie"},
+  "whatsapp kholo": {"action": "open_system_app", "app_name": "whatsapp"},
+  "mera location kya hai": {"action": "speak", "text": "Aap abhi Jamui, Bihar me hain."}
+}
