@@ -1,6 +1,22 @@
 {
-  "mera naam kya hai": {"action": "speak", "text": "Aapka naam Raja bhai hai, aap mere boss ho!"},
-  "youtube par jaan movie lagao": {"action": "search_youtube", "query": "jaan movie"},
-  "whatsapp kholo": {"action": "open_system_app", "app_name": "whatsapp"},
-  "mera location kya hai": {"action": "speak", "text": "Aap abhi Jamui, Bihar me hain."}
+  "kaise ho": {
+    "action": "speak", 
+    "text": "Main ekdum badhiya hoon Raja bhai, aap sunaiye kya haal chaal hain?"
+  },
+  "tum kaun ho": {
+    "action": "speak", 
+    "text": "Main NOVA AI hoon, aapka personal smart assistant."
+  },
+  "youtube par jaan movie": {
+    "action": "search_youtube", 
+    "query": "jaan movie"
+  },
+  "whatsapp kholo": {
+    "action": "open_system_app", 
+    "app_name": "whatsapp"
+  },
+  "kya kar rahe ho": {
+    "action": "speak", 
+    "text": "Bas aapke agle command ka intezaar kar raha hoon."
+  }
 }
