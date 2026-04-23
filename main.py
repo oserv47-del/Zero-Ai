@@ -1,94 +1,80 @@
 import os
 import json
-import io
-from PIL import Image
-import google.generativeai as genai
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from groq import Groq
 
-# Load environment variables
 load_dotenv()
 
-app = FastAPI(title="NOVA / MJ AI Assistant API - All Features")
+app = FastAPI(title="NOVA Custom AI Server")
 
-# Gemini API Setup
-GEMINI_API_KEY = os.getenv("AIzaSyCgO0B18KvsqKE4Qz3IBr8oGBXPifSk-6M")
-genai.configure(api_key=GEMINI_API_KEY)
+# Initialize Fast Groq Client (Llama 3)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+client = Groq(api_key=GROQ_API_KEY)
 
-# Using Gemini 1.5 Flash as it supports both Text and Vision efficiently
-model = genai.GenerativeModel('gemini-1.5-flash')
+# Load your Custom Trained Data
+def load_brain():
+    try:
+        with open("brain.json", "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
 
-class TextCommand(BaseModel):
+custom_brain = load_brain()
+
+class CommandRequest(BaseModel):
     command: str
 
 @app.get("/")
 def home():
-    return {"status": "AI Master Server is Running Successfully! 🚀", "version": "5.0"}
+    return {"status": "NOVA Custom Brain is Live and FAST! ⚡"}
 
-# ==========================================
-# ROUTE 1: Text & Voice Commands (System, Spotify, Files)
-# ==========================================
 @app.post("/api/command")
-async def process_text_command(req: TextCommand):
-    system_prompt = f"""
-    You are the core intelligence of an advanced Android Assistant.
-    The user command is: "{req.command}"
-    
-    You must output ONLY a valid JSON object. No markdown, no explanations.
-    Analyze the command and return the appropriate action structure:
+async def process_command(req: CommandRequest):
+    user_input = req.command.lower()
 
-    1. System App/Settings Open:
-       {{"action": "open_system_app", "app_name": "whatsapp/settings/camera/youtube"}}
-    2. Spotify Control:
-       {{"action": "play_spotify", "song": "song_name", "artist": "artist_name"}}
-    3. File Management (Create/Copy/Move):
-       {{"action": "file_manager", "operation": "create", "path": "/storage/emulated/0/Download", "filename": "name.txt"}}
-    4. System Analysis/Device Info:
-       {{"action": "system_analysis", "task": "check_battery_or_storage"}}
-    5. General Chat/Answers:
-       {{"action": "speak", "text": "Your conversational answer here in Hindi/English"}}
+    # ==========================================
+    # STEP 1: CHECK CUSTOM TRAINED BRAIN (0 Latency)
+    # ==========================================
+    for key_phrase, action_data in custom_brain.items():
+        if key_phrase in user_input:
+            # Agar trained data match ho gaya, to turant fast reply karo
+            return {"status": "success", "source": "custom_brain", "data": action_data}
+
+
+    # ==========================================
+    # STEP 2: FALLBACK TO FAST AI (Groq - Llama 3)
+    # ==========================================
+    system_prompt = """
+    You are an advanced Android Assistant. User command: "{}"
+    Return ONLY valid JSON.
+    Actions allowed: open_system_app (app_name), search_youtube (query), speak (text).
     """
-
+    
     try:
-        response = model.generate_content(system_prompt)
-        raw_text = response.text.strip().removeprefix('```json').removesuffix('```').strip()
-        return {"status": "success", "data": json.loads(raw_text)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# ==========================================
-# ROUTE 2: Vision & Screen Processing (Screen, Image, Camera Analysis)
-# ==========================================
-@app.post("/api/vision")
-async def process_vision_command(
-    feature_type: str = Form(...), # 'screen_reading', 'screen_analysis', 'camera_analysis', 'image_analysis'
-    user_prompt: str = Form(default="Analyze this image and tell me what you see."),
-    image: UploadFile = File(...)
-):
-    try:
-        # Image ko read karke PIL format me convert karna
-        image_data = await image.read()
-        pil_image = Image.open(io.BytesIO(image_data))
-
-        # Alag-alag features ke liye prompts
-        if feature_type == "screen_reading":
-            prompt = "Extract all readable text and UI elements from this screenshot. Return output as a JSON with key 'extracted_text'."
-        elif feature_type == "screen_analysis":
-            prompt = "Analyze this Android screen. What app is open? What is the user doing? Return JSON with keys 'current_app' and 'activity_description'."
-        elif feature_type == "camera_analysis":
-            prompt = f"This is a live camera feed. {user_prompt}. Return JSON with key 'surroundings_analysis'."
-        else:
-            prompt = f"Analyze this image. {user_prompt}. Return JSON with key 'image_details'."
-
-        prompt += "\nOutput ONLY valid JSON."
-
-        # Vision model ko image aur prompt bhejna
-        response = model.generate_content([prompt, pil_image])
-        raw_text = response.text.strip().removeprefix('```json').removesuffix('```').strip()
-
-        return {"status": "success", "feature": feature_type, "data": json.loads(raw_text)}
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_prompt.format(req.command)
+                }
+            ],
+            model="llama3-8b-8192", # Extremely fast model
+            temperature=0.3,
+            max_tokens=100
+        )
+        
+        response_text = chat_completion.choices[0].message.content.strip()
+        
+        # Parse JSON
+        action_json = json.loads(response_text)
+        return {"status": "success", "source": "llama3_ai", "data": action_json}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print("AI Error:", e)
+        # Agar net/API issue ho, toh error bolne ko kaho
+        return {
+            "status": "error", 
+            "data": {"action": "speak", "text": "Bhai, network ya server me kuch issue hai."}
+        }
