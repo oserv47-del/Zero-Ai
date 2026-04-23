@@ -13,7 +13,7 @@ load_dotenv()
 app = FastAPI(title="NOVA / MJ AI Assistant API - All Features")
 
 # Gemini API Setup
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = os.getenv("AIzaSyCgO0B18KvsqKE4Qz3IBr8oGBXPifSk-6M")
 genai.configure(api_key=GEMINI_API_KEY)
 
 # Using Gemini 1.5 Flash as it supports both Text and Vision efficiently
